@@ -28,3 +28,5 @@ public/notion/*
 !public/notion/.gitkeep
 
 .tool-versions
+
+.idea/
