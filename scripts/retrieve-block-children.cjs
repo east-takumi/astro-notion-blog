@@ -2,9 +2,20 @@ const fs = require('fs');
 const { setTimeout } = require('timers/promises');
 const { Client } = require('@notionhq/client');
 
-const notion = new Client({ auth: process.env.NOTION_API_SECRET });
+const notion = new Client({
+  auth: process.env.NOTION_API_SECRET,
+  notionVersion: '2026-03-11',
+});
 
 const requestDuration = 300;
+
+const pageId = process.argv
+  .find((arg) => arg.startsWith('--pageId='))
+  .replace('--pageId=', '');
+
+const outputDir = `tmp/${pageId}`;
+fs.rmSync(outputDir, { recursive: true, force: true });
+fs.mkdirSync(outputDir, { recursive: true });
 
 const retry = (maxRetries, fn) => {
   return fn().catch(function (err) {
@@ -36,7 +47,7 @@ const retrieveAndWriteBlockChildren = async (blockId) => {
     params['start_cursor'] = res.next_cursor;
   }
 
-  fs.writeFileSync(`tmp/${blockId}.json`, JSON.stringify(results));
+  fs.writeFileSync(`${outputDir}/${blockId}.json`, JSON.stringify(results));
 
   results.forEach(async (block) => {
     if (
@@ -67,7 +78,7 @@ const retrieveAndWriteBlock = async (blockId) => {
 
   const block = await retry(3, () => notion.blocks.retrieve(params));
 
-  fs.writeFileSync(`tmp/${blockId}.json`, JSON.stringify(block));
+  fs.writeFileSync(`${outputDir}/${blockId}.json`, JSON.stringify(block));
 
   if (block.has_children) {
     await retrieveAndWriteBlockChildren(block.id);
@@ -75,6 +86,5 @@ const retrieveAndWriteBlock = async (blockId) => {
 };
 
 (async () => {
-  const blockId = process.argv[2];
-  await retrieveAndWriteBlockChildren(blockId);
+  await retrieveAndWriteBlockChildren(pageId);
 })();
